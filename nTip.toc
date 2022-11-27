@@ -1,0 +1,5 @@
+## Interface: 10000
+## Author: nard3n
+## Title: |cff8cccc4n|rTip
+
+core.lua
