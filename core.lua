@@ -19,13 +19,14 @@ local floor = floor
 local upper = string.upper
 local sub = sub
 local gsub = gsub
-local find = find
+local find = string.find
 
 local UnitName = UnitName
 local UnitLevel = UnitLevel
 local UnitExists = UnitExists
 local UnitCreatureType = UnitCreatureType
 local GetQuestDifficultyColor = GetQuestDifficultyColor
+local HealthBar = GameTooltipStatusBar
 
 C["Tooltips"] = {
 	Enable = true,
@@ -39,8 +40,8 @@ C["Tooltips"] = {
 }
 
 function Tooltip:Globals()
-    GameTooltipStatusBar:ClearAllPoints()
-    GameTooltipStatusBar:Hide()
+    HealthBar:ClearAllPoints()
+    HealthBar:Hide()
 end
 
 function Tooltip:Skin()
@@ -71,16 +72,31 @@ local function GetFormattedUnitType(unit)
     end
 end
 
+-- local function GetFormattedUnitClassification(unit)
+--     local class = UnitClassification(unit)
+--     if class == "worldboss" then
+--         return "|cffFF0000"..BOSS.."|r "
+--     elseif class == "rareelite" then
+--         return "|cffFF66CCRare|r |cffFFFF00"..ELITE.."|r "
+--     elseif class == "rare" then
+--         return "|cffFF66CCRare|r "
+--     elseif class == "elite" then
+--         return "|cffFFFF00"..ELITE.."|r "
+--     else
+--         return ""
+--     end
+-- end
+
 local function GetFormattedUnitClassification(unit)
     local class = UnitClassification(unit)
     if class == "worldboss" then
-        return "|cffFF0000"..BOSS.."|r "
+        return "|cffAF5050B |r"
     elseif class == "rareelite" then
-        return "|cffFF66CCRare|r |cffFFFF00"..ELITE.."|r "
+        return "|cffAF5050R+ |r"
     elseif class == "rare" then
-        return "|cffFF66CCRare|r "
+        return "|cffAF5050R |r"
     elseif class == "elite" then
-        return "|cffFFFF00"..ELITE.."|r "
+        return "|cffAF5050+ |r"
     else
         return ""
     end
@@ -160,23 +176,43 @@ function Tooltip:OnTooltipSetUnit()
         end
 
         GameTooltipTextLeft1:SetText(name)
-	
+
+        if (UnitIsPlayer(unit)) then
+            local Class = select(2, UnitClass(unit))
+            local Color = RAID_CLASS_COLORS[Class]
+            GameTooltipTextLeft1:SetTextColor(Color.r, Color.g, Color.b)
+        else
+            local Reaction = UnitReaction(unit, "player")
+            local Color = FACTION_BAR_COLORS[Reaction]
+            GameTooltipTextLeft1:SetTextColor(Color.r, Color.g, Color.b)
+        end
+
 		if UnitIsDeadOrGhost(unit) then
 			GameTooltipTextLeft1:SetTextColor(0.5,0.5,0.5)
 		end
             -- Color guildnames
 
-        if GetGuildInfo(unit) then
+        if GetGuildInfo(unit) and UnitIsPlayer(unit) then
             --if GetGuildInfo(unit) == GetGuildInfo("player") and IsInGuild("player") then
+            if (GameTooltipTextLeft2 and GameTooltipTextLeft2:GetText()) then
                GameTooltipTextLeft2:SetText("|cffFF66CC"..GameTooltipTextLeft2:GetText().."|r")
+            end
            -- end
         end
 
             -- Level
-
         for i = 2, GameTooltip:NumLines() do
-            if _G["GameTooltipTextLeft"..i]:GetText():find("^"..TOOLTIP_UNIT_LEVEL:gsub("%%s", ".+")) then
-                _G["GameTooltipTextLeft"..i]:SetText(GetFormattedUnitString(unit))
+            Line = _G["GameTooltipTextLeft" .. i]
+            if Line:GetText():find("^"..TOOLTIP_UNIT_LEVEL:gsub("%%s", ".+")) then
+                local nextLine = _G["GameTooltipTextLeft" .. i+1]
+                Line:SetText(GetFormattedUnitString(unit))
+                --nextLine:SetAlpha(0)
+            elseif (Line and find(Line:GetText(), PVP)) then
+                Line:SetText(format("|cFFe30611%s|r", PVP))
+            elseif Line:GetText() == _G.FACTION_ALLIANCE then 
+                Line:SetText(format("|cFF0693e3%s|r",  _G.FACTION_ALLIANCE))
+            elseif Line:GetText() == _G.FACTION_HORDE then
+                Line:SetText(format("|cFFdb3e00%s|r", _G.FACTION_HORDE))
             end
         end
 
@@ -216,9 +252,8 @@ function Tooltip:ResetBorderColor()
     end
 end
 
-function Tooltip:AddHooks()
-    --hooksecurefunc("GameTooltip_SetDefaultAnchor", self.SetTooltipDefaultAnchor)
 
+function Tooltip:AddHooks()
     hooksecurefunc("GameTooltip_ClearMoney", self.ResetBorderColor)
     TooltipDataProcessor.AddTooltipPostCall(Enum.TooltipDataType.Unit, self.OnTooltipSetUnit)
 end
@@ -229,7 +264,7 @@ function Tooltip:Enable()
     end
     self:Globals()
     self:AddHooks()
-
+    
     Tooltip.Skin(GameTooltip)
 	Tooltip.Skin(ItemRefTooltip)
 	Tooltip.Skin(EmbeddedItemTooltip)
